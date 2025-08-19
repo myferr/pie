@@ -83,8 +83,8 @@ func scanDependencies() {
 
 	// Create PieDeps.txt
 
-pieDepsContent := strings.Join(deps, "\n")
-io.WriteFile(".pie/PieDeps.txt", []byte(pieDepsContent), 0644)
+	pieDepsContent := strings.Join(deps, "\n")
+	ioutil.WriteFile(".pie/PieDeps.txt", []byte(pieDepsContent), 0644)
 }
 
 func init() {
@@ -106,8 +106,7 @@ func runDocker(config PieConfig) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-
-c
+		<-c
 		fmt.Println("\nStopping container...")
 		stopCmd := exec.Command("docker", "stop", "pie-runner-container")
 		stopCmd.Run()
