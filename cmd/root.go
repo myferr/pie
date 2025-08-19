@@ -5,9 +5,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -43,7 +45,6 @@ var rootCmd = &cobra.Command{
 			config.DepsFile = requirements
 			config.Dependencies = nil // Ensure deps_file takes precedence
 		} else if config.DepsFile == "" && len(config.Dependencies) == 0 {
-			fmt.Println("No dependencies specified. Scanning for imports...")
 			scanDependencies()
 			config.DepsFile = "PieDeps.txt"
 		}
@@ -78,7 +79,6 @@ func scanDependencies() {
 	// Create PieDeps.txt
 	pieDepsContent := strings.Join(deps, "\n")
 	ioutil.WriteFile("PieDeps.txt", []byte(pieDepsContent), 0644)
-	fmt.Println("Created PieDeps.txt")
 }
 
 func init() {
@@ -86,20 +86,40 @@ func init() {
 }
 
 func runDocker(config PieConfig) {
-	fmt.Println("Building Docker image...")
 	buildCmd := exec.Command("docker", "build", "-t", "pie-runner", "-f", ".pie/Piefile", ".")
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		fmt.Println("Error building Docker image:", err)
 		return
 	}
 
-	fmt.Println("Running Python script in Docker container...")
-	runCmd := exec.Command("docker", "run", "pie-runner")
+	runCmd := exec.Command("docker", "run", "--name", "pie-runner-container", "pie-runner")
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
+
+	// Handle graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-
+c
+		fmt.Println("\nStopping container...")
+		stopCmd := exec.Command("docker", "stop", "pie-runner-container")
+		stopCmd.Run()
+		rmCmd := exec.Command("docker", "rm", "pie-runner-container")
+		rmCmd.Run()
+		fmt.Println("Container stopped and removed.")
+		os.Exit(0)
+	}()
+
 	if err := runCmd.Run(); err != nil {
+		// Don't print error on graceful shutdown
+		if exitError, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitError.Sys().(syscall.WaitStatus); ok {
+				if status.Signaled() && status.Signal() == syscall.SIGTERM {
+					return
+				}
+			}
+		}
 		fmt.Println("Error running Docker container:", err)
 		return
 	}
@@ -131,7 +151,6 @@ func generatePiefile(config PieConfig) {
 		fmt.Println("Error creating .pie/Piefile:", err)
 		return
 	}
-	fmt.Println("Generated .pie/Piefile")
 }
 
 func readPieConfig() PieConfig {
