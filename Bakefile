@@ -1,0 +1,7 @@
+build:
+    go build -o .
+
+clean:
+    go clean
+
+default: build
