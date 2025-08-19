@@ -17,11 +17,7 @@ var initCmd = &cobra.Command{
 		// Create pie.yml
 		pieYmlContent := `main: main.py
 python: "3.12"
-# You can specify a dependency file, or list your dependencies here
-# deps_file: PieDeps.yaml
 dependencies:
-  - pandas
-  - numpy
 `
 		err := ioutil.WriteFile("pie.yml", []byte(pieYmlContent), 0644)
 		if err != nil {

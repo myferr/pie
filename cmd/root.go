@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 
@@ -22,7 +20,7 @@ type PieConfig struct {
 	Dependencies []string `yaml:"dependencies,omitempty"`
 }
 
-var requirements string
+var file string
 
 var rootCmd = &cobra.Command{
 	Use:   "pie [file]",
@@ -40,55 +38,13 @@ var rootCmd = &cobra.Command{
 
 		config.Main = fileToRun // Update config for Piefile generation
 
-		// Handle requirements flag
-		if requirements != "" {
-			config.DepsFile = requirements
-			config.Dependencies = nil // Ensure deps_file takes precedence
-		} else if config.DepsFile == "" && len(config.Dependencies) == 0 {
-			scanDependencies()
-			config.DepsFile = ".pie/PieDeps.txt"
-		}
-
 		generatePiefile(config)
 		runDocker(config)
 	},
 }
 
-func scanDependencies() {
-	var deps []string
-	importRegex := regexp.MustCompile(`^(?:from|import)\s+([\w\.]+)`)
-
-	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasSuffix(path, ".py") {
-			content, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			matches := importRegex.FindAllStringSubmatch(string(content), -1)
-			for _, match := range matches {
-				deps = append(deps, match[1])
-			}
-		}
-		return nil
-	})
-
-	// Create .pie directory if it doesn't exist
-	if _, err := os.Stat(".pie"); os.IsNotExist(err) {
-		os.Mkdir(".pie", 0755)
-	}
-
-	// Create PieDeps.txt
-
-	pieDepsContent := strings.Join(deps, "\n")
-	ioutil.WriteFile(".pie/PieDeps.txt", []byte(pieDepsContent), 0644)
-}
-
 func init() {
-	rootCmd.Flags().StringVarP(&requirements, "requirements", "r", "", "Specify a custom requirements file")
+	rootCmd.Flags().StringVarP(&file, "file", "f", "pie.yml", "Specify a custom pie.yml file")
 }
 
 func runDocker(config PieConfig) {
@@ -163,8 +119,8 @@ func readPieConfig() PieConfig {
 		Python: "latest", // Default python version
 	}
 
-	if _, err := os.Stat("pie.yml"); err == nil {
-		data, err := ioutil.ReadFile("pie.yml")
+	if _, err := os.Stat(file); err == nil {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
 			fmt.Println("Error reading pie.yml:", err)
 			os.Exit(1)
