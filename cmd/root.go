@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 			config.Dependencies = nil // Ensure deps_file takes precedence
 		} else if config.DepsFile == "" && len(config.Dependencies) == 0 {
 			scanDependencies()
-			config.DepsFile = "PieDeps.txt"
+			config.DepsFile = ".pie/PieDeps.txt"
 		}
 
 		generatePiefile(config)
@@ -76,9 +76,15 @@ func scanDependencies() {
 		return nil
 	})
 
+	// Create .pie directory if it doesn't exist
+	if _, err := os.Stat(".pie"); os.IsNotExist(err) {
+		os.Mkdir(".pie", 0755)
+	}
+
 	// Create PieDeps.txt
-	pieDepsContent := strings.Join(deps, "\n")
-	ioutil.WriteFile("PieDeps.txt", []byte(pieDepsContent), 0644)
+
+pieDepsContent := strings.Join(deps, "\n")
+io.WriteFile(".pie/PieDeps.txt", []byte(pieDepsContent), 0644)
 }
 
 func init() {
