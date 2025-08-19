@@ -1,7 +1,7 @@
 package main
 
-import "pie/cmd"
+import "github.com/myferr/pie/cmd"
 
 func main() {
-  cmd.Execute()
+	cmd.Execute()
 }
