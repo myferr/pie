@@ -5,6 +5,7 @@
 [![Docker Required](https://img.shields.io/badge/Docker-Required-blue?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Python Compatible](https://img.shields.io/badge/Python-3.10%2B-yellow?logo=python&logoColor=white)](https://www.python.org/)
 [![License MIT](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
+[![Go](https://github.com/myferr/pie/actions/workflows/go.yml/badge.svg)](https://github.com/myferr/pie/actions/workflows/go.yml)
 
 ## What is pie?
 
