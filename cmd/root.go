@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -22,8 +23,37 @@ var rootCmd = &cobra.Command{
 	Long:  `Pie is a CLI tool that simplifies Python project setup by managing dependencies and running scripts in isolated Docker environments.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		config := readPieConfig()
-		fmt.Printf("Config: %+v\n", config)
+		generatePiefile(config)
 	},
+}
+
+func generatePiefile(config PieConfig) {
+	// Create .pie directory if it doesn't exist
+	if _, err := os.Stat(".pie"); os.IsNotExist(err) {
+		os.Mkdir(".pie", 0755)
+	}
+
+	// Generate Dockerfile content
+	var dockerfileContent string
+	dockerfileContent += fmt.Sprintf("FROM python:%s-slim\n", config.Python)
+	dockerfileContent += "WORKDIR /app\n"
+	dockerfileContent += "COPY . .\n"
+
+	if len(config.Dependencies) > 0 {
+		dockerfileContent += fmt.Sprintf("RUN pip install %s\n", strings.Join(config.Dependencies, " "))
+	} else if config.DepsFile != "" {
+		dockerfileContent += fmt.Sprintf("RUN pip install -r %s\n", config.DepsFile)
+	}
+
+	dockerfileContent += fmt.Sprintf("CMD [\"python\", \"%s\"]\n", config.Main)
+
+	// Write content to .pie/Piefile
+	err := ioutil.WriteFile(".pie/Piefile", []byte(dockerfileContent), 0644)
+	if err != nil {
+		fmt.Println("Error creating .pie/Piefile:", err)
+		return
+	}
+	fmt.Println("Generated .pie/Piefile")
 }
 
 func readPieConfig() PieConfig {
