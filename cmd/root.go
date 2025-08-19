@@ -21,6 +21,8 @@ type PieConfig struct {
 }
 
 var file string
+var pythonVersion string
+var dependencies string
 
 var rootCmd = &cobra.Command{
 	Use:   "pie [file]",
@@ -28,7 +30,25 @@ var rootCmd = &cobra.Command{
 	Long:  `Pie is a CLI tool that simplifies Python project setup by managing dependencies and running scripts in isolated Docker environments.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		config := readPieConfig()
+		config := PieConfig{}
+
+		// Prioritize flags over pie.yml
+		if pythonVersion != "" {
+			config.Python = pythonVersion
+		} else {
+			config.Python = "latest"
+		}
+
+		if dependencies != "" {
+			// Trim braces and split
+			deps := strings.Trim(dependencies, "{}")
+			config.Dependencies = strings.Split(deps, ",")
+		}
+
+		// If no flags, read pie.yml
+		if pythonVersion == "" && dependencies == "" {
+			config = readPieConfig()
+		}
 
 		// Determine the file to run
 		fileToRun := config.Main
@@ -45,6 +65,8 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "pie.yml", "Specify a custom pie.yml file")
+	rootCmd.Flags().StringVarP(&pythonVersion, "python-version", "p", "", "Specify the Python version")
+	rootCmd.Flags().StringVarP(&dependencies, "dependencies", "d", "", "Specify a comma-separated list of dependencies")
 }
 
 func runDocker(config PieConfig) {
@@ -62,7 +84,8 @@ func runDocker(config PieConfig) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
+		<-
+c
 		fmt.Println("\nStopping container...")
 		stopCmd := exec.Command("docker", "stop", "pie-runner-container")
 		stopCmd.Run()

@@ -1,4 +1,0 @@
-main: main.py
-python: "3.12"
-dependencies:
-  - colorama
