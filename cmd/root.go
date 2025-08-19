@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -23,6 +25,8 @@ type PieConfig struct {
 var file string
 var pythonVersion string
 var dependencies string
+var verbose bool
+var dispose bool
 
 var rootCmd = &cobra.Command{
 	Use:   "pie [file]",
@@ -67,16 +71,31 @@ func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "pie.yml", "Specify a custom pie.yml file")
 	rootCmd.Flags().StringVarP(&pythonVersion, "python-version", "p", "", "Specify the Python version")
 	rootCmd.Flags().StringVarP(&dependencies, "dependencies", "d", "", "Specify a comma-separated list of dependencies")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show full Docker build output")
+	rootCmd.Flags().BoolVar(&dispose, "dispose", false, "Remove the container after it runs")
 }
 
 func runDocker(config PieConfig) {
 	buildCmd := exec.Command("docker", "build", "-t", "pie-runner", "-f", ".pie/Piefile", ".")
+	if verbose {
+		buildCmd.Stdout = os.Stdout
+		buildCmd.Stderr = os.Stderr
+	}
 	if err := buildCmd.Run(); err != nil {
 		fmt.Println("Error building Docker image:", err)
 		return
 	}
 
-	runCmd := exec.Command("docker", "run", "--name", "pie-runner-container", "pie-runner")
+	rand.Seed(time.Now().UnixNano())
+	containerName := fmt.Sprintf("pie-%s", randomString(6))
+
+	args := []string{"run", "--name", containerName}
+	if dispose {
+		args = append(args, "--rm")
+	}
+	args = append(args, "pie-runner")
+
+	runCmd := exec.Command("docker", args...)
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 
@@ -87,9 +106,9 @@ func runDocker(config PieConfig) {
 		<-
 c
 		fmt.Println("\nStopping container...")
-		stopCmd := exec.Command("docker", "stop", "pie-runner-container")
+		stopCmd := exec.Command("docker", "stop", containerName)
 		stopCmd.Run()
-		rmCmd := exec.Command("docker", "rm", "pie-runner-container")
+		rmCmd := exec.Command("docker", "rm", containerName)
 		rmCmd.Run()
 		fmt.Println("Container stopped and removed.")
 		os.Exit(0)
@@ -157,6 +176,15 @@ func readPieConfig() PieConfig {
 	}
 
 	return config
+}
+
+func randomString(n int) string {
+	var letters = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
 
 func Execute() {
